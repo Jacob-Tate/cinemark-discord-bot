@@ -12,6 +12,19 @@ COMING_SOON_URL = "https://www.cinemark.com/movies/coming-soon"
 NOW_PLAYING_URL = "https://www.cinemark.com/movies/now-playing"
 EVENTS_URL = "https://www.cinemark.com/movies/events"
 
+# Known anime studios and distributors for fallback detection
+ANIME_STUDIOS = [
+    'studio ghibli', 'toei animation', 'madhouse', 'pierrot', 'bones', 'mappa',
+    'wit studio', 'trigger', 'kyoani', 'kyoto animation', 'a-1 pictures',
+    'cloverworks', 'ufotable', 'production i.g', 'sunrise', 'shaft',
+    'j.c.staff', 'white fox', 'doga kobo', 'studio deen', 'gonzo'
+]
+
+ANIME_DISTRIBUTORS = [
+    'funimation', 'crunchyroll', 'aniplex', 'viz media', 'sentai filmworks',
+    'eleven arts', 'shout factory', 'discotek media'
+]
+
 def scrape_all_movies(driver):
     driver.get(THEATER_URL)
     print("Setting theater location...")
@@ -64,25 +77,74 @@ def get_specific_showtimes(driver, movie_url):
     except Exception: return {"Error": "Could not scrape showtimes."}
 
 def clean_movie_title(title):
+    """Clean movie title for TMDB search, removing format indicators and event suffixes."""
     cleaned = re.sub(r'\s*\(.*\)', '', title).strip()
+    
+    # Remove quality indicators like "4K", "IMAX", "3D", etc.
+    cleaned = re.sub(r'\s+(4K|IMAX|3D|HDR|Dolby)\b', '', cleaned, flags=re.IGNORECASE).strip()
+    
     if ':' in cleaned:
         base, edition = cleaned.split(':', 1)
-        if any(kw in edition.lower() for kw in ['anniversary', 'imax', 'exclusive', 'remastered', "director's cut", 'Fathom']):
+        if any(kw in edition.lower() for kw in ['anniversary', 'imax', 'exclusive', 'remastered', "director's cut", 'fathom']):
             return base.strip()
+    
     if '|' in cleaned:
         base, edition = cleaned.split('|', 1)
-        if any(kw in edition.lower() for kw in ['Studio Ghibli Fest']):
+        if any(kw in edition.lower() for kw in ['studio ghibli fest', 'ghibli fest', 'anime night', 'fathom events']):
             return base.strip()
+    
     return cleaned
+
+def is_anime_by_title_patterns(original_title, cleaned_title):
+    """Check if a movie is anime based on title patterns and known indicators."""
+    original_lower = original_title.lower()
+    cleaned_lower = cleaned_title.lower()
+    
+    # Check for Studio Ghibli specifically
+    if 'studio ghibli' in original_lower or 'ghibli' in original_lower:
+        return True
+    
+    # Check for known anime studios in the title
+    for studio in ANIME_STUDIOS:
+        if studio in original_lower:
+            return True
+    
+    # Check for known anime distributors
+    for distributor in ANIME_DISTRIBUTORS:
+        if distributor in original_lower:
+            return True
+    
+    # Check for anime-specific patterns
+    anime_patterns = [
+        r'japanese\s+with\s+english\s+subtitles',
+        r'english\s+dub(bed)?',
+        r'anime\s+(movie|film|night)',
+        r'(sub|dub)\s*\|',
+        r'\|\s*(sub|dub)',
+    ]
+    
+    for pattern in anime_patterns:
+        if re.search(pattern, original_lower):
+            return True
+    
+    return False
 
 def get_tmdb_details(title, api_key):
     """Fetches details, checks for anime keyword, and gets overview in one go."""
     cleaned_title = clean_movie_title(title)
+    
+    # First check if it's anime by title patterns (fallback detection)
+    is_anime_by_pattern = is_anime_by_title_patterns(title, cleaned_title)
+    
     try:
         search_url = f"https://api.themoviedb.org/3/search/movie?api_key={api_key}&query={cleaned_title}"
         search_res = requests.get(search_url); search_res.raise_for_status()
         results = search_res.json()['results']
-        if not results: return None, False, "N/A", "N/A"
+        if not results: 
+            # If no results but we detected anime by pattern, still return as anime
+            if is_anime_by_pattern:
+                return None, True, "Animation", "Anime movie detected by title pattern."
+            return None, False, "N/A", "N/A"
 
         movie_details = results[0]
         movie_id = movie_details.get('id')
@@ -97,12 +159,18 @@ def get_tmdb_details(title, api_key):
         genre_map = {g['id']: g['name'] for g in genres_res.json()['genres']}
         genres = [genre_map.get(gid, '?') for gid in movie_details.get('genre_ids', [])]
 
-        is_anime = False
+        is_anime_by_keyword = False
         if movie_id:
             keywords_url = f"https://api.themoviedb.org/3/movie/{movie_id}/keywords?api_key={api_key}"
             kw_res = requests.get(keywords_url); kw_res.raise_for_status()
-            is_anime = any(kw['id'] == ANIME_KEYWORD_ID for kw in kw_res.json().get('keywords', []))
+            is_anime_by_keyword = any(kw['id'] == ANIME_KEYWORD_ID for kw in kw_res.json().get('keywords', []))
+        
+        # Final anime determination: either TMDB keyword OR pattern detection
+        is_anime = is_anime_by_keyword or is_anime_by_pattern
         
         return movie_details, is_anime, ", ".join(genres), overview
     except requests.exceptions.RequestException:
+        # If API fails but we detected anime by pattern, still return as anime
+        if is_anime_by_pattern:
+            return None, True, "Animation", "Anime movie detected by title pattern (API error)."
         return None, False, "API Error", "API Error"
