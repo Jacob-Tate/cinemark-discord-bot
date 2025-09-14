@@ -4,6 +4,7 @@ import time
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 from datetime import datetime
+import os
 
 ANIME_KEYWORD_ID = 210024
 THEATER_URL = os.getenv('THEATER_URL')
