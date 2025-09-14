@@ -10,6 +10,7 @@ ANIME_KEYWORD_ID = 210024
 THEATER_URL = os.getenv('THEATER_URL')
 COMING_SOON_URL = "https://www.cinemark.com/movies/coming-soon"
 NOW_PLAYING_URL = "https://www.cinemark.com/movies/now-playing"
+EVENTS_URL = "https://www.cinemark.com/movies/events"
 
 def scrape_all_movies(driver):
     driver.get(THEATER_URL)
@@ -17,7 +18,8 @@ def scrape_all_movies(driver):
     time.sleep(5)
     coming_soon = _scrape_movie_list_page(driver, COMING_SOON_URL, "Coming Soon")
     now_playing = _scrape_movie_list_page(driver, NOW_PLAYING_URL, "Now Playing")
-    all_movies = {movie['title']: movie for movie in coming_soon + now_playing}
+    events = _scrape_movie_list_page(driver, EVENTS_URL, "Events")
+    all_movies = {movie['title']: movie for movie in coming_soon + now_playing + events}
     return list(all_movies.values())
 
 def _scrape_movie_list_page(driver, url, page_name):
