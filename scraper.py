@@ -65,7 +65,11 @@ def clean_movie_title(title):
     cleaned = re.sub(r'\s*\(.*\)', '', title).strip()
     if ':' in cleaned:
         base, edition = cleaned.split(':', 1)
-        if any(kw in edition.lower() for kw in ['anniversary', 'imax', 'exclusive', 'remastered', "director's cut"]):
+        if any(kw in edition.lower() for kw in ['anniversary', 'imax', 'exclusive', 'remastered', "director's cut", 'Fathom']):
+            return base.strip()
+    if '|' in cleaned:
+        base, edition = cleaned.split('|', 1)
+        if any(kw in edition.lower() for kw in ['Studio Ghibli Fest']):
             return base.strip()
     return cleaned
 
