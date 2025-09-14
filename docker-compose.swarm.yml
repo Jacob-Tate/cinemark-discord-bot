@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  docker-monitor:
+    image: ghcr.io/Jacob-Tate/cinemark-discord-bot:latest
+    volumes:
+      - ./movies.db:/app/movies.db
+    environment:
+      - BOT_TOKEN = ${BOT_TOKEN}
+      - TMDB_API_KEY = ${TMDB_API_KEY}
+      - DISCORD_CHANNEL_ANIME_ID = ${DISCORD_CHANNEL_ANIME_ID}
+      - DISCORD_CHANNEL_WATCHLIST_ID = ${DISCORD_CHANNEL_WATCHLIST_ID}
+      - DISCORD_CHANNEL_ALL_MOVIES_ID = ${DISCORD_CHANNEL_ALL_MOVIES_ID:-0}
+      - THEATER_URL = ${THEATER_URL}
+    networks:
+      - cinemark_network
+
+networks:
+  cinemark_network:
+    name: cinemark_network
+    driver: overlay

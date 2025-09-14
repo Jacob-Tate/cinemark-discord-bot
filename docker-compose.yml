@@ -1,0 +1,25 @@
+version: '3.8'
+
+networks:
+  cinemark_net:
+    driver: bridge
+
+services:
+  cinemark-bot:
+    build:
+      context: .
+    container_name: cinemark-bot
+    environment:
+      - BOT_TOKEN = ${BOT_TOKEN}
+      - TMDB_API_KEY = ${TMDB_API_KEY}
+      - DISCORD_CHANNEL_ANIME_ID = ${DISCORD_CHANNEL_ANIME_ID}
+      - DISCORD_CHANNEL_WATCHLIST_ID = ${DISCORD_CHANNEL_WATCHLIST_ID}
+      - DISCORD_CHANNEL_ALL_MOVIES_ID = ${DISCORD_CHANNEL_ALL_MOVIES_ID:-0}
+      - THEATER_URL = ${THEATER_URL}
+    # Restart the bot automatically if it crashes
+    restart: unless-stopped
+    # Mount the database file into the container so it persists across restarts
+    volumes:
+      - ./movies.db:/app/movies.db
+    networks:
+      - cinemark_net
