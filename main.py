@@ -75,11 +75,10 @@ async def check_for_updates():
     conn = db.get_connection()
     try:
         scraped_movies = scraper.scrape_all_movies(driver)
-        global_ignore_set = db.get_all_ignored_movie_titles(conn)
         
         print(f"Found {len(scraped_movies)} unique movies. Processing...")
         for movie in scraped_movies:
-            if movie['title'] in global_ignore_set:
+            if db.is_movie_ignored_by_any_user(conn, movie['title']):
                 print(f"\nSkipping '{movie['title']}' as it is on a user's ignore list.")
                 continue
 
@@ -161,7 +160,7 @@ async def ignore_autocomplete(ctx: discord.AutocompleteContext):
     conn = db.get_connection()
     items = db.get_user_ignore_list(conn, ctx.interaction.user.id)
     conn.close()
-    return [item for item in items if ctx.value.lower() in item.lower()][:25]
+    return [item['pattern'] for item in items if ctx.value.lower() in item['pattern'].lower()][:25]
     
 # --- Bot Commands ---
 @bot.slash_command(name="check", description="Manually trigger a check for movie updates.")
@@ -222,21 +221,29 @@ async def watchlist_view(ctx: discord.ApplicationContext):
 
 @ignore_commands.command(name="add", description="Ignore a movie to stop all processing for it.")
 async def ignore_add(ctx, movie: discord.Option(str, autocomplete=movie_autocomplete)):
-    conn = db.get_connection(); success = db.add_to_ignore_list(conn, ctx.author.id, movie); conn.close()
+    conn = db.get_connection(); success = db.add_to_ignore_list(conn, ctx.author.id, movie, is_regex=False); conn.close()
     if success: await ctx.respond(f"🔇 **{movie}** is now on your ignore list. The bot will no longer process updates for it.")
     else: await ctx.respond(f"ℹ️ You are already ignoring **{movie}**.")
 
+@ignore_commands.command(name="add_regex", description="Ignore movies matching a regex pattern (e.g., '.*English Dub.*').")
+async def ignore_add_regex(ctx, pattern: str):
+    try: re.compile(pattern, re.IGNORECASE)
+    except re.error: await ctx.respond("❌ That is not a valid Python Regex pattern.", ephemeral=True); return
+    conn = db.get_connection(); success = db.add_to_ignore_list(conn, ctx.author.id, pattern, is_regex=True); conn.close()
+    if success: await ctx.respond(f"🔇 Regex pattern `{pattern}` added to your ignore list. Movies matching this pattern will be ignored.")
+    else: await ctx.respond(f"ℹ️ Pattern `{pattern}` is already on your ignore list.")
+
 @ignore_commands.command(name="remove", description="Un-ignore a movie to process its updates again.")
-async def ignore_remove(ctx, movie: discord.Option(str, autocomplete=ignore_autocomplete)):
-    conn = db.get_connection(); success = db.remove_from_ignore_list(conn, ctx.author.id, movie); conn.close()
-    if success: await ctx.respond(f"🔊 **{movie}** has been removed from your ignore list.")
-    else: await ctx.respond(f"❌ You aren't ignoring **{movie}**.")
+async def ignore_remove(ctx, pattern: discord.Option(str, autocomplete=ignore_autocomplete)):
+    conn = db.get_connection(); success = db.remove_from_ignore_list(conn, ctx.author.id, pattern); conn.close()
+    if success: await ctx.respond(f"🔊 **{pattern}** has been removed from your ignore list.")
+    else: await ctx.respond(f"❌ You aren't ignoring **{pattern}**.")
 
 @ignore_commands.command(name="view", description="View your personal ignore list.")
 async def ignore_view(ctx: discord.ApplicationContext):
     conn = db.get_connection(); ignore_list = db.get_user_ignore_list(conn, ctx.author.id); conn.close()
     if not ignore_list: await ctx.respond("Your ignore list is empty.", ephemeral=True); return
-    description = "\n".join(f"- {title}" for title in ignore_list)
+    description = "\n".join(f"- `{item['pattern']}` {'(Regex)' if item['is_regex'] else ''}" for item in ignore_list)
     embed = discord.Embed(title=f"{ctx.author.name}'s Ignore List", description=description, color=discord.Color.dark_red())
     await ctx.respond(embed=embed)
 

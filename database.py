@@ -30,10 +30,20 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS ignore_list (
             user_id INTEGER NOT NULL,
-            movie_title TEXT NOT NULL,
-            PRIMARY KEY(user_id, movie_title)
+            pattern TEXT NOT NULL,
+            is_regex INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY(user_id, pattern)
         )
     ''')
+    
+    # Migration: Add is_regex column to ignore_list if it doesn't exist
+    cursor.execute("PRAGMA table_info(ignore_list)")
+    columns = [column[1] for column in cursor.fetchall()]
+    if 'is_regex' not in columns:
+        cursor.execute("ALTER TABLE ignore_list ADD COLUMN is_regex INTEGER NOT NULL DEFAULT 0")
+        # Rename movie_title column to pattern for consistency
+        cursor.execute("ALTER TABLE ignore_list RENAME COLUMN movie_title TO pattern")
+    
     conn.commit()
     conn.close()
     print("Database initialized successfully.")
@@ -102,28 +112,41 @@ def get_watchers_for_movie(conn, movie_title):
     return list(watchers)
 
 # --- Ignore List Functions ---
-def add_to_ignore_list(conn, user_id, movie_title):
+def add_to_ignore_list(conn, user_id, pattern, is_regex=False):
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO ignore_list (user_id, movie_title) VALUES (?, ?)", (user_id, movie_title))
+        cursor.execute("INSERT INTO ignore_list (user_id, pattern, is_regex) VALUES (?, ?, ?)", (user_id, pattern, 1 if is_regex else 0))
         conn.commit()
         return True
     except sqlite3.IntegrityError: return False
 
-def remove_from_ignore_list(conn, user_id, movie_title):
+def remove_from_ignore_list(conn, user_id, pattern):
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM ignore_list WHERE user_id = ? AND movie_title = ?", (user_id, movie_title))
+    cursor.execute("DELETE FROM ignore_list WHERE user_id = ? AND pattern = ?", (user_id, pattern))
     conn.commit()
     return cursor.rowcount > 0
 
 def get_user_ignore_list(conn, user_id):
     cursor = conn.cursor()
-    cursor.execute("SELECT movie_title FROM ignore_list WHERE user_id = ?", (user_id,))
-    return {row['movie_title'] for row in cursor.fetchall()}
+    cursor.execute("SELECT pattern, is_regex FROM ignore_list WHERE user_id = ?", (user_id,))
+    return cursor.fetchall()
 
-# --- NEW FUNCTION ---
-def get_all_ignored_movie_titles(conn):
-    """Gets a set of all unique movie titles that are ignored by ANY user."""
+def is_movie_ignored_by_any_user(conn, movie_title):
+    """Checks if a movie is ignored by ANY user (including regex patterns)."""
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT movie_title FROM ignore_list")
-    return {row['movie_title'] for row in cursor.fetchall()}
+    
+    # Check exact title matches
+    cursor.execute("SELECT 1 FROM ignore_list WHERE pattern = ? AND is_regex = 0", (movie_title,))
+    if cursor.fetchone():
+        return True
+    
+    # Check regex patterns
+    cursor.execute("SELECT pattern FROM ignore_list WHERE is_regex = 1")
+    for row in cursor.fetchall():
+        try:
+            if re.search(row['pattern'], movie_title, re.IGNORECASE):
+                return True
+        except re.error:
+            continue
+    
+    return False
