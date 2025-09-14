@@ -9,21 +9,21 @@
 
 ## Features
 
--  scraping Cinemark's "Now Playing" and "Coming Soon" sections for a specific theater.
--  enriqueciendo datos de películas con información de TMDB (géneros, descripciones, y la palabra clave "anime").
-- 📨 **Notificaciones de Discord Altamente Personalizables:**
-  - Canales dedicados para estrenos de anime, todos los estrenos de películas, y notificaciones de listas de seguimiento personales.
-  - Notificaciones de "Película Nueva Añadida" con póster, descripción y géneros.
-  - Notificaciones de "Horarios Actualizados" cuando se añaden nuevas fechas para películas de anime o en lista de seguimiento.
-- 🤖 **Comandos de Bot Interactivos:**
-  - `/check`: Forzar manualmente una comprobación de actualizaciones.
-  - `/showtimes`: Obtener una lista completa de fechas y horarios para cualquier película.
-  - `/watchlist`: Añadir películas a una lista de seguimiento personal, ¡incluso con patrones regex!
-  - `/ignore`: Silenciar notificaciones para películas específicas.
-- 🔐 **Seguridad y Persistencia:**
-  - Todas las claves y secretos se gestionan de forma segura a través de variables de entorno.
-  - La base de datos SQLite persiste en un volumen de Docker, por lo que tus listas de seguimiento nunca se pierden.
-- 🚀 **Despliegue Sencillo con Docker:** Empaquetado en un contenedor Docker para un despliegue fácil y consistente.
+-  **Automated Scraping:** Scrapes Cinemark's "Now Playing" and "Coming Soon" sections for a specific, pre-configured theater.
+-  **Rich Data Enrichment:** Enhances movie data with information from TMDB, including genres, plot descriptions, and the specific "anime" keyword.
+- 📨 **Highly Customizable Discord Notifications:**
+  - Dedicated channels for new anime releases, all movie releases, and personal watchlist notifications.
+  - "New Movie Added" notifications with a large poster, description, and genres.
+  - "Showtimes Updated" notifications when new dates are added for anime or watchlisted movies.
+- 🤖 **Interactive Bot Commands:**
+  - `/check`: Manually force a check for updates.
+  - `/showtimes`: Get a full list of dates and times for any movie.
+  - `/watchlist`: Add movies to a personal watchlist, even with powerful regex patterns!
+  - `/ignore`: Stop the bot from processing updates for specific movies.
+- 🔐 **Security and Persistence:**
+  - All keys and secrets are managed securely via environment variables and a `.env` file.
+  - The SQLite database persists in a Docker volume, so your watchlists and ignore lists are never lost between restarts.
+- 🚀 **Simple Docker Deployment:** Packaged in a Docker container for an easy and consistent one-command deployment.
 
 ## Quick Start
 
